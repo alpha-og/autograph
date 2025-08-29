@@ -135,7 +135,7 @@ export default function App() {
           // Pass the controllable parameters as props to the canvas
           equation={finalPookalam}
           mode="fractal"
-          spriteUrl="https://creazilla-store.fra1.digitaloceanspaces.com/emojis/56533/blossom-emoji.png"
+          spriteUrl="/sprite.png"
           width={800}
           height={600}
           scale={45}
