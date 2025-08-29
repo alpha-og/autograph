@@ -7,7 +7,7 @@ import React, {
 } from "react";
 
 /**
- * EquationPlotter – generates points for equations based on the visible canvas area.
+ * EquationPlotter – generates points for equations.
  */
 function EquationPlotter({
   mode,
@@ -15,14 +15,19 @@ function EquationPlotter({
   parametric,
   implicit,
   resolution,
-  view, // { xMin, xMax, yMin, yMax }
+  view,
 }) {
   const points = [];
   const { xMin, xMax, yMin, yMax } = view;
 
   try {
-    if (mode === "1d" && typeof equation === "function") {
-      const step = (xMax - xMin) / (resolution * (xMax - xMin));
+    if (mode === "fractal" && typeof equation === "function") {
+      const tStep = (Math.PI * 2) / (resolution * 20);
+      for (let t = 0; t < Math.PI * 2; t += tStep) {
+        points.push(...equation(t));
+      }
+    } else if (mode === "1d" && typeof equation === "function") {
+      const step = 1 / resolution;
       for (let x = xMin; x <= xMax; x += step) {
         const y = equation(x);
         if (Number.isFinite(y)) {
@@ -30,8 +35,9 @@ function EquationPlotter({
         }
       }
     } else if (mode === "parametric" && typeof parametric === "function") {
-      const tRange = Math.PI * 4;
-      const step = tRange / (resolution * 100);
+      const tRange = Math.PI * 2;
+      const numPoints = resolution * 200;
+      const step = (tRange * 2) / numPoints;
       for (let t = -tRange; t <= tRange; t += step) {
         const result = parametric(t);
         if (result && Number.isFinite(result.x) && Number.isFinite(result.y)) {
@@ -39,8 +45,9 @@ function EquationPlotter({
         }
       }
     } else if (mode === "implicit" && typeof implicit === "function") {
-      const stepX = (xMax - xMin) / (resolution * 20);
-      const stepY = (yMax - yMin) / (resolution * 20);
+      const numSteps = resolution * 15;
+      const stepX = (xMax - xMin) / numSteps;
+      const stepY = (yMax - yMin) / numSteps;
       const tolerance = 0.1;
       for (let x = xMin; x <= xMax; x += stepX) {
         for (let y = yMin; y <= yMax; y += stepY) {
@@ -51,7 +58,7 @@ function EquationPlotter({
         }
       }
     } else {
-      const step = (xMax - xMin) / (resolution * (xMax - xMin));
+      const step = 1 / resolution;
       for (let x = xMin; x <= xMax; x += step) {
         points.push({ x, y: Math.sin(x) });
       }
@@ -184,8 +191,9 @@ function Controls({
             onChange={(e) => setMode(e.target.value)}
             className="select select-bordered w-full"
           >
-            <option value="1d">1D Function</option>
+            <option value="fractal">Fractal</option>
             <option value="parametric">Parametric</option>
+            <option value="1d">1D Function</option>
             <option value="implicit">Implicit</option>
           </select>
         </div>
@@ -234,14 +242,12 @@ export default function EnhancedDrawingCanvas({
 }) {
   const canvasRef = useRef(null);
   const spriteImgRef = useRef(null);
-
   const animationRef = useRef(null);
   const progressRef = useRef(0);
   const runningRef = useRef(true);
   const statusRef = useRef("drawing");
   const completionTimestampRef = useRef(null);
   const lastTimeRef = useRef(performance.now());
-
   const spriteAlphaRef = useRef(1);
   const pathAlphaRef = useRef(1);
 
@@ -281,30 +287,55 @@ export default function EnhancedDrawingCanvas({
   );
 
   const points = useMemo(() => {
-    const view = {
-      xMin: toWorldCoords(0, 0).x,
-      xMax: toWorldCoords(width, 0).x,
-      yMin: toWorldCoords(0, height).y,
-      yMax: toWorldCoords(0, 0).y,
-    };
-    return EquationPlotter({
+    const staticView = { xMin: -12, xMax: 12, yMin: -12, yMax: 12 };
+    const generatedPoints = EquationPlotter({
       mode: currentMode,
       equation,
       parametric,
       implicit,
       resolution,
-      view,
+      view: staticView,
     });
-  }, [
-    currentMode,
-    equation,
-    parametric,
-    implicit,
-    resolution,
-    toWorldCoords,
-    width,
-    height,
-  ]);
+
+    // ✨ FIX: For fractals, sort the points by depth to draw from the center out.
+    if (currentMode === "fractal") {
+      generatedPoints.sort((a, b) => b.depth - a.depth);
+    }
+
+    return generatedPoints;
+  }, [currentMode, equation, parametric, implicit, resolution]);
+
+  const pathSegments = useMemo(() => {
+    if (!points || points.length === 0) return [];
+    if (currentMode !== "fractal") {
+      return [{ color: "52, 152, 219", points: points }];
+    }
+    const segments = [];
+    const colors = [
+      "255, 165, 0",
+      "220, 20, 60",
+      "255, 215, 0",
+      "139, 0, 139",
+      "0, 191, 255",
+    ];
+    let colorIndex = 0;
+    let pointsUntilChange = Math.floor(Math.random() * 400 + 200);
+    let currentSegment = { color: colors[colorIndex], points: [] };
+    for (const point of points) {
+      currentSegment.points.push(point);
+      pointsUntilChange--;
+      if (pointsUntilChange <= 0) {
+        segments.push(currentSegment);
+        colorIndex = (colorIndex + 1) % colors.length;
+        pointsUntilChange = Math.floor(Math.random() * 400 + 200);
+        currentSegment = { color: colors[colorIndex], points: [] };
+      }
+    }
+    if (currentSegment.points.length > 0) {
+      segments.push(currentSegment);
+    }
+    return segments;
+  }, [points, currentMode]);
 
   const drawScene = useCallback(
     (ctx) => {
@@ -316,13 +347,10 @@ export default function EnhancedDrawingCanvas({
       if (showGridState) {
         ctx.strokeStyle = "#eee";
         ctx.lineWidth = 1;
-
         const origin = toCanvasCoords(0, 0);
-
         const xStep = 1;
         const startX = Math.floor(toWorldCoords(0, 0).x / xStep) * xStep;
         const endX = Math.ceil(toWorldCoords(width, 0).x / xStep) * xStep;
-
         for (let x = startX; x <= endX; x += xStep) {
           const cx = toCanvasCoords(x, 0).x;
           ctx.beginPath();
@@ -330,11 +358,9 @@ export default function EnhancedDrawingCanvas({
           ctx.lineTo(cx, height);
           ctx.stroke();
         }
-
         const yStep = 1;
         const startY = Math.floor(toWorldCoords(0, height).y / yStep) * yStep;
         const endY = Math.ceil(toWorldCoords(0, 0).y / yStep) * yStep;
-
         for (let y = startY; y <= endY; y += yStep) {
           const cy = toCanvasCoords(0, y).y;
           ctx.beginPath();
@@ -365,7 +391,6 @@ export default function EnhancedDrawingCanvas({
         for (let x = startX; x <= endX; x += xStep) {
           if (x !== 0) ctx.fillText(x, toCanvasCoords(x, 0).x, origin.y + 5);
         }
-
         ctx.textAlign = "right";
         ctx.textBaseline = "middle";
         const yStep = Math.ceil(50 / currentScale);
@@ -377,30 +402,40 @@ export default function EnhancedDrawingCanvas({
         ctx.fillText("0", origin.x - 5, origin.y + 15);
       }
 
-      const pts = points.map((p) => toCanvasCoords(p.x, p.y));
-      ctx.strokeStyle = `rgba(52, 152, 219, ${pathAlphaRef.current})`;
-      ctx.lineWidth = 3;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
+      let pointsToDraw =
+        statusRef.current === "drawing"
+          ? Math.floor(progressRef.current)
+          : points.length;
 
-      if (pts.length > 1) {
+      for (const segment of pathSegments) {
+        if (pointsToDraw <= 0) break;
+        const pointsInThisSegment = Math.min(
+          segment.points.length,
+          pointsToDraw,
+        );
+        const segmentPoints = segment.points.slice(0, pointsInThisSegment);
+        if (segmentPoints.length < 2) {
+          pointsToDraw -= segmentPoints.length;
+          continue;
+        }
+        const pts = segmentPoints.map((p) => toCanvasCoords(p.x, p.y));
+        ctx.strokeStyle = `rgba(${segment.color}, ${pathAlphaRef.current})`;
+        ctx.lineWidth = currentMode === "fractal" ? 2 : 3;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
         ctx.beginPath();
         ctx.moveTo(pts[0].x, pts[0].y);
-
-        const pathEndIndex =
-          statusRef.current === "drawing"
-            ? Math.floor(progressRef.current)
-            : pts.length - 1;
-
-        for (let i = 1; i <= pathEndIndex && i < pts.length; i++) {
+        for (let i = 1; i < pts.length; i++) {
           ctx.lineTo(pts[i].x, pts[i].y);
         }
         ctx.stroke();
+        pointsToDraw -= segmentPoints.length;
       }
 
+      const allCanvasPoints = points.map((p) => toCanvasCoords(p.x, p.y));
       Sprite({
         ctx,
-        pts,
+        pts: allCanvasPoints,
         progress: progressRef.current,
         alpha: spriteAlphaRef.current,
         sprite: spriteImgRef.current,
@@ -408,7 +443,19 @@ export default function EnhancedDrawingCanvas({
 
       ctx.restore();
     },
-    [width, height, points, toCanvasCoords, showGridState, showLabelsState],
+    [
+      pathSegments,
+      points,
+      toCanvasCoords,
+      showGridState,
+      showLabelsState,
+      currentMode,
+      width,
+      height,
+      scale,
+      zoom,
+      offset,
+    ],
   );
 
   const handleReset = useCallback(() => {
@@ -423,12 +470,9 @@ export default function EnhancedDrawingCanvas({
   }, []);
 
   const startAnimation = useCallback(() => {
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-    }
+    if (animationRef.current) cancelAnimationFrame(animationRef.current);
     runningRef.current = true;
     lastTimeRef.current = performance.now();
-
     const ctx = canvasRef.current.getContext("2d");
 
     const animate = (timestamp) => {
@@ -436,14 +480,12 @@ export default function EnhancedDrawingCanvas({
       lastTimeRef.current = timestamp;
 
       if (runningRef.current) {
-        const pts = points;
-        if (pts && pts.length > 0) {
+        if (points && points.length > 0) {
           const progressSpeed = (speed * 50 * deltaTime) / 1000;
-
           if (statusRef.current === "drawing") {
             progressRef.current += progressSpeed;
-            if (progressRef.current >= pts.length - 1) {
-              progressRef.current = pts.length - 1;
+            if (progressRef.current >= points.length - 1) {
+              progressRef.current = points.length - 1;
               statusRef.current = "holding";
               completionTimestampRef.current = timestamp;
             }
@@ -455,10 +497,8 @@ export default function EnhancedDrawingCanvas({
           } else if (statusRef.current === "fading") {
             const elapsedFade = timestamp - completionTimestampRef.current;
             const currentAlpha = Math.max(0, 1 - elapsedFade / fadeDuration);
-
             spriteAlphaRef.current = currentAlpha;
             pathAlphaRef.current = currentAlpha;
-
             if (currentAlpha <= 0) {
               handleReset();
             }
@@ -479,13 +519,8 @@ export default function EnhancedDrawingCanvas({
   }, [startAnimation]);
 
   useEffect(() => {
-    progressRef.current = 0;
-    spriteAlphaRef.current = 1;
-    pathAlphaRef.current = 1;
-    statusRef.current = "drawing";
-    completionTimestampRef.current = null;
-    startAnimation();
-  }, [points, startAnimation]);
+    handleReset();
+  }, [points, handleReset]);
 
   const handleMouseDown = useCallback((e) => {
     isDragging.current = true;
@@ -513,36 +548,31 @@ export default function EnhancedDrawingCanvas({
       const rect = canvasRef.current.getBoundingClientRect();
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
-
       const zoomFactor = 0.1;
       const delta = e.deltaY > 0 ? -zoomFactor : zoomFactor;
       const newZoom = Math.min(Math.max(0.1, zoom + delta * zoom), 10);
-
       if (newZoom === zoom) return;
-
       const newOffsetX =
         offset.x - ((mouseX - width / 2) / scale) * (1 / zoom - 1 / newZoom);
       const newOffsetY =
         offset.y + ((mouseY - height / 2) / scale) * (1 / zoom - 1 / newZoom);
-
       setZoom(newZoom);
       setOffset({ x: newOffsetX, y: newOffsetY });
     },
-    [zoom, offset.x, offset.y, width, height, scale],
+    [zoom, offset, width, height, scale],
   );
 
   const handlePlay = () => {
     runningRef.current = true;
   };
   const handlePause = () => (runningRef.current = false);
-
   const handleResetView = () => {
     setZoom(1);
     setOffset({ x: 0, y: 0 });
   };
 
   return (
-    <div className="flex flex-col items-center gap-4">
+    <div className="card flex flex-col items-center gap-4 bg-base-100 shadow-xl p-6 w-full max-w-3xl mx-auto space-y-4">
       <div
         className="cursor-grab active:cursor-grabbing border-2 border-gray-300"
         onMouseDown={handleMouseDown}
