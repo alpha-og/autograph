@@ -13,6 +13,26 @@ import { mulberry32 } from "../utils/rng";
 // --- HELPER COMPONENTS AND FUNCTIONS ---
 
 /**
+ * Calculates an adaptive grid step size to prevent visual clutter.
+ * @param {number} currentScale - The current scale of the canvas (scale * zoom).
+ * @returns {number} An appropriate step size for the grid lines.
+ */
+const calculateAdaptiveGridStep = (currentScale) => {
+  const desiredPixelSpacing = 60; // Aim for grid lines ~60px apart
+  const minUnitsPerLine = desiredPixelSpacing / currentScale;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(minUnitsPerLine)));
+  const residual = minUnitsPerLine / magnitude;
+
+  if (residual > 5) {
+    return 10 * magnitude;
+  } else if (residual > 2) {
+    return 5 * magnitude;
+  } else {
+    return 2 * magnitude;
+  }
+};
+
+/**
  * EquationPlotter – generates points for equations.
  */
 function EquationPlotter({
@@ -245,10 +265,11 @@ export const DrawingCanvas = forwardRef(
         ctx.save();
 
         const currentScale = scale * zoom;
+        const gridStep = calculateAdaptiveGridStep(currentScale);
         if (showGrid) {
           ctx.strokeStyle = "rgba(0, 0, 0, 0.1)";
           ctx.lineWidth = 1;
-          const xStep = 1;
+          const xStep = gridStep;
           const startX = Math.floor(toWorldCoords(0, 0).x / xStep) * xStep;
           const endX = Math.ceil(toWorldCoords(width, 0).x / xStep) * xStep;
           for (let x = startX; x <= endX; x += xStep) {
@@ -258,7 +279,7 @@ export const DrawingCanvas = forwardRef(
             ctx.lineTo(cx, height);
             ctx.stroke();
           }
-          const yStep = 1;
+          const yStep = gridStep;
           const startY = Math.floor(toWorldCoords(0, height).y / yStep) * yStep;
           const endY = Math.ceil(toWorldCoords(0, 0).y / yStep) * yStep;
           for (let y = startY; y <= endY; y += yStep) {
@@ -285,23 +306,34 @@ export const DrawingCanvas = forwardRef(
           ctx.font = "12px Arial";
           ctx.textAlign = "center";
           ctx.textBaseline = "top";
-          const xStepLabel = Math.ceil(50 / currentScale);
+          const labelStep = calculateAdaptiveGridStep(currentScale);
+
           const startXLabel =
-            Math.floor(toWorldCoords(0, 0).x / xStepLabel) * xStepLabel;
+            Math.floor(toWorldCoords(0, 0).x / labelStep) * labelStep;
           const endXLabel =
-            Math.ceil(toWorldCoords(width, 0).x / xStepLabel) * xStepLabel;
-          for (let x = startXLabel; x <= endXLabel; x += xStepLabel) {
-            if (x !== 0) ctx.fillText(x, toCanvasCoords(x, 0).x, origin.y + 5);
+            Math.ceil(toWorldCoords(width, 0).x / labelStep) * labelStep;
+          for (let x = startXLabel; x <= endXLabel; x += labelStep) {
+            if (x !== 0)
+              ctx.fillText(
+                x.toPrecision(3),
+                toCanvasCoords(x, 0).x,
+                origin.y + 5,
+              );
           }
+
           ctx.textAlign = "right";
           ctx.textBaseline = "middle";
-          const yStepLabel = Math.ceil(50 / currentScale);
           const startYLabel =
-            Math.floor(toWorldCoords(0, height).y / yStepLabel) * yStepLabel;
+            Math.floor(toWorldCoords(0, height).y / labelStep) * labelStep;
           const endYLabel =
-            Math.ceil(toWorldCoords(0, 0).y / yStepLabel) * yStepLabel;
-          for (let y = startYLabel; y <= endYLabel; y += yStepLabel) {
-            if (y !== 0) ctx.fillText(y, origin.x - 5, toCanvasCoords(0, y).y);
+            Math.ceil(toWorldCoords(0, 0).y / labelStep) * labelStep;
+          for (let y = startYLabel; y <= endYLabel; y += labelStep) {
+            if (y !== 0)
+              ctx.fillText(
+                y.toPrecision(3),
+                origin.x - 5,
+                toCanvasCoords(0, y).y,
+              );
           }
           ctx.fillText("0", origin.x - 5, origin.y + 15);
         }
@@ -404,38 +436,60 @@ export const DrawingCanvas = forwardRef(
       handleReset();
     }, [points, handleReset]);
 
-    const handleMouseDown = useCallback((e) => {
-      isDragging.current = true;
-      lastMousePos.current = { x: e.clientX, y: e.clientY };
-    }, []);
+    const handleMouseDown = useCallback(
+      (e) => {
+        isDragging.current = true;
+        const rect = canvasRef.current.getBoundingClientRect();
+        lastMousePos.current = {
+          x: (e.clientX - rect.left) * (width / rect.width),
+          y: (e.clientY - rect.top) * (height / rect.height),
+        };
+      },
+      [width, height],
+    );
     const handleMouseUp = useCallback(() => {
       isDragging.current = false;
     }, []);
     const handleMouseMove = useCallback(
       (e) => {
         if (!isDragging.current) return;
-        const dx = (e.clientX - lastMousePos.current.x) / (scale * zoom);
-        const dy = (e.clientY - lastMousePos.current.y) / (scale * zoom);
-        setOffset((prev) => ({ x: prev.x + dx, y: prev.y - dy }));
-        lastMousePos.current = { x: e.clientX, y: e.clientY };
+        const rect = canvasRef.current.getBoundingClientRect();
+        const currentMouseX = (e.clientX - rect.left) * (width / rect.width);
+        const currentMouseY = (e.clientY - rect.top) * (height / rect.height);
+
+        const dx_canvas = currentMouseX - lastMousePos.current.x;
+        const dy_canvas = currentMouseY - lastMousePos.current.y;
+
+        const dx_world = dx_canvas / (scale * zoom);
+        const dy_world = dy_canvas / (scale * zoom);
+
+        setOffset((prev) => ({ x: prev.x + dx_world, y: prev.y - dy_world }));
+
+        lastMousePos.current = { x: currentMouseX, y: currentMouseY };
       },
-      [zoom, scale],
+      [zoom, scale, width, height],
     );
     const handleWheel = useCallback(
       (e) => {
         e.preventDefault();
         if (typeof setZoom !== "function") return;
         const rect = canvasRef.current.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
+
+        // ✅ FIX: Scale mouse coordinates to match canvas resolution for accurate pivot point.
+        const mouseX = (e.clientX - rect.left) * (width / rect.width);
+        const mouseY = (e.clientY - rect.top) * (height / rect.height);
+
         const zoomFactor = 0.1;
         const delta = e.deltaY > 0 ? -zoomFactor : zoomFactor;
-        const newZoom = Math.min(Math.max(0.1, zoom + delta * zoom), 10);
+        const newZoom = Math.min(Math.max(0.01, zoom + delta * zoom), 100);
         if (newZoom === zoom) return;
+
         const worldX = (mouseX - width / 2) / (scale * zoom) - offset.x;
         const worldY = (height / 2 - mouseY) / (scale * zoom) - offset.y;
+
         const newOffsetX = (mouseX - width / 2) / (scale * newZoom) - worldX;
         const newOffsetY = (height / 2 - mouseY) / (scale * newZoom) - worldY;
+
         setZoom(newZoom);
         setOffset({ x: newOffsetX, y: newOffsetY });
       },
@@ -458,7 +512,7 @@ export const DrawingCanvas = forwardRef(
 
     return (
       <div
-        className="w-full cursor-grab active:cursor-grabbing rounded-lg overflow-hidden"
+        className="w-full h-full flex cursor-grab active:cursor-grabbing rounded-lg overflow-hidden"
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}

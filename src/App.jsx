@@ -1,8 +1,8 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import { DrawingCanvas } from "./components/DrawingCanvas";
 import { Play, Pause, RefreshCw, Minimize, Settings } from "lucide-react";
-import { mulberry32 } from "./utils/rng";
 import { X } from "lucide-react";
+import { finalPookalam, pookalamPresets } from "./utils/pookalam";
 
 /**
  * Control sliders and buttons for Pookalam parameters.
@@ -24,16 +24,68 @@ function PookalamControls({
   };
 
   const controlData = [
+    { name: "style", min: 1, max: 100, step: 1, label: "Style (Seed)" },
     { name: "speed", min: 1, max: 20, step: 0.5, label: "Speed" },
     { name: "resolution", min: 5, max: 30, step: 1, label: "Resolution" },
-    { name: "density", min: 10, max: 80, step: 1, label: "Density" },
-    { name: "petals", min: 3, max: 12, step: 1, label: "Petals" },
-    { name: "size", min: 4, max: 8, step: 0.1, label: "Size" },
-    { name: "style", min: 1, max: 100, step: 1, label: "Style" },
+    { name: "density", min: 0.3, max: 1.0, step: 0.05, label: "Density" },
+    { name: "petals", min: 4, max: 16, step: 1, label: "Petals" },
+    { name: "size", min: 80, max: 120, step: 1, label: "Size" },
+    { name: "complexity", min: 0.1, max: 1.0, step: 0.05, label: "Complexity" },
+    { name: "symmetry", min: 0.5, max: 1.0, step: 0.05, label: "Symmetry" },
   ];
 
   return (
-    <div className="p-4 space-y-6">
+    <div className="p-4 space-y-6 overflow-y-auto h-full">
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          onClick={() =>
+            setParams((prev) => ({
+              ...prev,
+              ...pookalamPresets.traditional,
+              style: Math.floor(Math.random() * 100),
+            }))
+          }
+          className="btn btn-primary btn-sm"
+        >
+          Traditional
+        </button>
+        <button
+          onClick={() =>
+            setParams((prev) => ({
+              ...prev,
+              ...pookalamPresets.ornate,
+              style: Math.floor(Math.random() * 100),
+            }))
+          }
+          className="btn btn-primary btn-sm"
+        >
+          Ornate
+        </button>
+        <button
+          onClick={() =>
+            setParams((prev) => ({
+              ...prev,
+              ...pookalamPresets.minimalist,
+              style: Math.floor(Math.random() * 100),
+            }))
+          }
+          className="btn btn-primary btn-sm"
+        >
+          Minimalist
+        </button>
+        <button
+          onClick={() =>
+            setParams((prev) => ({
+              ...prev,
+              ...pookalamPresets.organic,
+              style: Math.floor(Math.random() * 100),
+            }))
+          }
+          className="btn btn-primary btn-sm"
+        >
+          Organic
+        </button>
+      </div>
       <div className="grid grid-cols-4 gap-2">
         <button onClick={onPlay} className="btn btn-success btn-sm">
           <Play size={16} className="shrink-0" /> Play
@@ -49,106 +101,55 @@ function PookalamControls({
         </button>
       </div>
       <div className="divider"></div>
-      {controlData.map(({ name, min, max, step, label }) => (
-        <div className="form-control" key={name}>
-          <label className="label">
-            <span className="label-text font-semibold">
-              {label}: {params[name].toFixed(name === "size" ? 1 : 0)}
-            </span>
-          </label>
-          <input
-            type="range"
-            name={name}
-            min={min}
-            max={max}
-            step={step}
-            value={params[name]}
-            onChange={handleChange}
-            className="range range-primary range-sm"
-          />
-        </div>
-      ))}
+      <div className="overflow-y-scroll">
+        {controlData.map(({ name, min, max, step, label }) => (
+          <div className="form-control" key={name}>
+            <label className="label">
+              <span className="label-text font-semibold">
+                {label}:{" "}
+                {params[name].toFixed(
+                  name.match(/density|complexity|symmetry/) ? 2 : 0,
+                )}
+              </span>
+            </label>
+            <input
+              type="range"
+              name={name}
+              min={min}
+              max={max}
+              step={step}
+              value={params[name]}
+              onChange={handleChange}
+              className="range range-primary range-sm"
+            />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
+
 export default function App() {
   const [params, setParams] = useState({
     speed: 10,
     resolution: 15,
-    density: 45,
-    petals: 8,
-    size: 6.0,
-    style: 1,
+    ...pookalamPresets.traditional,
   });
 
   const [zoom, setZoom] = useState(1);
   const [showControls, setShowControls] = useState(true);
   const canvasRef = useRef(null);
 
-  const finalPookalam = useCallback(
-    (t) => {
-      const points = [];
-      const baseRadius = params.size;
-      const numFillLayers = Math.floor(params.density);
-      const mainPetals = Math.floor(params.petals);
-      const rand = mulberry32(params.style);
-      const outerAmp1 = 0.1 + rand() * 0.15;
-      const outerAmp2 = 0.02 + rand() * 0.05;
-      const outerRippleMult = 2 + Math.floor(rand() * 3);
-      const midPetalShape = 4 + Math.floor(rand() * 4);
-      const midPetalAmp = 0.2 + rand() * 0.3;
-      const midPetalRot = rand() * Math.PI;
-      const coreAmp = 0.15 + rand() * 0.2;
-      const coreInversion = rand() > 0.5 ? 1 : -1;
-      for (let i = 0; i < numFillLayers; i++) {
-        const rScale = numFillLayers > 1 ? i / (numFillLayers - 1) : 1;
-        const ringDepth = numFillLayers - i;
-        const outerMaxRadius = baseRadius;
-        const outerRippleFreq = mainPetals * outerRippleMult;
-        const r_outer_outline =
-          outerMaxRadius *
-          (1 +
-            outerAmp1 * Math.sin(mainPetals * t) +
-            outerAmp2 * Math.cos(outerRippleFreq * t));
-        const r_outer_scaled = r_outer_outline * rScale;
-        points.push({
-          x: r_outer_scaled * Math.cos(t),
-          y: r_outer_scaled * Math.sin(t),
-          depth: ringDepth,
-        });
-        const midRingPositionRadius = baseRadius * 0.6;
-        const midPetalMaxRadius = baseRadius * 0.28;
-        for (let j = 0; j < mainPetals; j++) {
-          const petalAngle = (j / mainPetals) * Math.PI * 2;
-          const petalCenterX = midRingPositionRadius * Math.cos(petalAngle);
-          const petalCenterY = midRingPositionRadius * Math.sin(petalAngle);
-          const r_mid_outline =
-            midPetalMaxRadius * (1 + midPetalAmp * Math.cos(midPetalShape * t));
-          const r_mid_scaled = r_mid_outline * rScale;
-          const x_mid_local = r_mid_scaled * Math.cos(t + midPetalRot);
-          const y_mid_local = r_mid_scaled * Math.sin(t + midPetalRot);
-          points.push({
-            x: petalCenterX + x_mid_local,
-            y: petalCenterY + y_mid_local,
-            depth: ringDepth + 1000,
-          });
-        }
-        const coreMaxRadius = baseRadius * 0.35;
-        const r_core_outline =
-          coreMaxRadius *
-          (1 -
-            coreAmp * coreInversion * Math.sin(mainPetals * t + Math.PI / 2));
-        const r_core_scaled = r_core_outline * rScale;
-        points.push({
-          x: r_core_scaled * Math.cos(t),
-          y: r_core_scaled * Math.sin(t),
-          depth: ringDepth + 2000,
-        });
-      }
-      return points;
-    },
-    // FIXED: Dependency array only includes shape-defining parameters
-    [params.density, params.petals, params.size, params.style],
+  const equation = useMemo(
+    () => finalPookalam(params),
+    [
+      params.size,
+      params.density,
+      params.petals,
+      params.style,
+      params.complexity,
+      params.symmetry,
+    ],
   );
 
   const handlePlay = () => canvasRef.current?.play();
@@ -168,51 +169,49 @@ export default function App() {
         className="fixed top-5 right-5 z-30"
       >
         <div className="flex items-center gap-3 px-5 py-2.5 rounded-full bg-base-100 border-2 border-primary shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer">
-          {/* GitHub logo */}
           <img
             src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
             alt="GitHub"
             className="w-6 h-6 rounded-full"
+            onError={(e) => {
+              e.target.style.display = "none";
+            }}
           />
-
-          {/* Text */}
           <span className="font-semibold text-base text-primary">
             Star on GitHub
           </span>
-
-          {/* Stars count */}
           <img
             src="https://img.shields.io/github/stars/alpha-og/autograph?style=social"
             alt="GitHub Repo stars"
             className="h-6"
+            onError={(e) => {
+              e.target.style.display = "none";
+            }}
           />
         </div>
       </a>
-      <div className="w-full max-w-5xl text-center mb-4">
+      <div className="absolute top-5 z-10 w-full text-center bg-base-100/80 backdrop-blur-sm border-l border-base-300 p-4 rounded-r-lg">
         <h1 className="text-4xl font-bold">Pookalam AutoGraph</h1>
         <p className="text-base-content/70">
-          This Onam make a Pookalam with TinkerHub
+          Happy Onam! Create a beautiful Pookalam with code.
         </p>
       </div>
-      <div className="card w-full max-w-5xl flex flex-row bg-base-100 shadow-xl overflow-hidden relative">
-        <div className="flex-grow flex items-center justify-center p-4">
-          <DrawingCanvas
-            ref={canvasRef}
-            equation={finalPookalam}
-            mode="fractal"
-            spriteUrl="/sprite.png"
-            width={800}
-            height={600}
-            scale={45}
-            resolution={params.resolution}
-            speed={params.speed}
-            zoom={zoom}
-            setZoom={setZoom}
-            className="w-full h-auto aspect-[4/3]"
-          />
-        </div>
+      <div className="w-1/3 h-full flex flex-row bg-base-100 shadow-xl overflow-hidden relative">
+        <DrawingCanvas
+          ref={canvasRef}
+          equation={equation}
+          mode="fractal"
+          spriteUrl="/sprite.png"
+          width={800}
+          height={600}
+          scale={45}
+          resolution={params.resolution}
+          speed={params.speed}
+          zoom={zoom}
+          setZoom={setZoom}
+          className="w-full h-auto aspect-[4/3]"
+        />
 
-        {/* Settings sidebar inside the card */}
         <div
           className={`
       absolute top-0 right-0 h-full w-80 bg-base-100/80 backdrop-blur-sm border-l border-base-300
