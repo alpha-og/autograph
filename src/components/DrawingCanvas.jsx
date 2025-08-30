@@ -481,7 +481,7 @@ export const DrawingCanvas = forwardRef(
 
         const zoomFactor = 0.1;
         const delta = e.deltaY > 0 ? -zoomFactor : zoomFactor;
-        const newZoom = Math.min(Math.max(0.01, zoom + delta * zoom), 100);
+        const newZoom = Math.min(Math.max(0.0001, zoom + delta * zoom), 100);
         if (newZoom === zoom) return;
 
         const worldX = (mouseX - width / 2) / (scale * zoom) - offset.x;

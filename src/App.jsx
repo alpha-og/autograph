@@ -161,42 +161,50 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-base-200 flex flex-col items-center justify-center p-4 relative font-sans">
-      <a
-        href="https://github.com/alpha-og/autograph"
-        target="_blank"
-        rel="noreferrer"
-        className="fixed top-5 right-5 z-30"
-      >
-        <div className="flex items-center gap-3 px-5 py-2.5 rounded-full bg-base-100 border-2 border-primary shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer">
-          <img
-            src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
-            alt="GitHub"
-            className="w-6 h-6 rounded-full"
-            onError={(e) => {
-              e.target.style.display = "none";
-            }}
-          />
-          <span className="font-semibold text-base text-primary">
-            Star on GitHub
-          </span>
-          <img
-            src="https://img.shields.io/github/stars/alpha-og/autograph?style=social"
-            alt="GitHub Repo stars"
-            className="h-6"
-            onError={(e) => {
-              e.target.style.display = "none";
-            }}
-          />
-        </div>
-      </a>
-      <div className="absolute top-5 z-10 w-full text-center bg-base-100/80 backdrop-blur-sm border-l border-base-300 p-4 rounded-r-lg">
+    <div className="w-screen h-screen bg-base-200 flex flex-col items-center justify-center relative font-sans overflow-hidden">
+      <div className="absolute top-5 right-5 flex justify-center items-center gap-2 z-10 w-max text-center ">
+        <a
+          href="https://github.com/alpha-og/autograph"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <div className="flex items-center gap-3 px-5 py-2.5 rounded-full bg-base-100 border-2 border-primary shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer">
+            <img
+              src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
+              alt="GitHub"
+              className="w-6 h-6 rounded-full"
+              onError={(e) => {
+                e.target.style.display = "none";
+              }}
+            />
+            <span className="font-semibold text-base text-primary">
+              Star on GitHub
+            </span>
+            <img
+              src="https://img.shields.io/github/stars/alpha-og/autograph?style=social"
+              alt="GitHub Repo stars"
+              className="h-6"
+              onError={(e) => {
+                e.target.style.display = "none";
+              }}
+            />
+          </div>
+        </a>
+        <button
+          onClick={() => setShowControls((prev) => !prev)}
+          className="btn btn-secondary btn-circle shadow-lg "
+          aria-label="Toggle Settings"
+        >
+          <Settings />
+        </button>
+      </div>
+      <div className="absolute top-0 z-10 w-max text-center bg-base-100/80 backdrop-blur-sm border-l border-base-300 p-4 rounded-br-2xl rounded-bl-2xl">
         <h1 className="text-4xl font-bold">Pookalam AutoGraph</h1>
         <p className="text-base-content/70">
           Happy Onam! Create a beautiful Pookalam with code.
         </p>
       </div>
-      <div className="w-1/3 h-full flex flex-row bg-base-100 shadow-xl overflow-hidden relative">
+      <div className="w-full h-full flex flex-row bg-base-100 shadow-xl overflow-hidden relative">
         <DrawingCanvas
           ref={canvasRef}
           equation={equation}
@@ -214,7 +222,7 @@ export default function App() {
 
         <div
           className={`
-      absolute top-0 right-0 h-full w-80 bg-base-100/80 backdrop-blur-sm border-l border-base-300
+      absolute top-0 right-0 z-40 h-full w-80 bg-base-100/80 backdrop-blur-sm border-l border-base-300
       transform transition-transform duration-300 ease-in-out
       ${showControls ? "translate-x-0" : "translate-x-full"}
     `}
@@ -238,13 +246,6 @@ export default function App() {
           />
         </div>
       </div>
-      <button
-        onClick={() => setShowControls((prev) => !prev)}
-        className="btn btn-secondary btn-circle fixed bottom-6 right-6 z-30 shadow-lg"
-        aria-label="Toggle Settings"
-      >
-        <Settings />
-      </button>
     </div>
   );
 }

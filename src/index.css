@@ -35,3 +35,10 @@
   --depth: 1;
   --noise: 1;
 }
+
+html,
+body {
+  overscroll-behavior: none;
+  height: 100%;
+  overflow: hidden;
+}
