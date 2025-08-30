@@ -146,51 +146,56 @@ export default function App() {
 
   return (
     <div className="w-screen h-screen bg-base-200 flex flex-col items-center justify-center relative font-sans overflow-hidden">
-      {/* Top Controls (GitHub + Settings) */}
-      <div className="absolute top-5 right-5 flex items-center gap-3 z-20">
-        <a
-          href="https://github.com/alpha-og/autograph"
-          target="_blank"
-          rel="noreferrer"
-        >
-          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-base-100/80 border border-base-300 shadow-md hover:shadow-lg hover:scale-105 transition-all duration-300">
-            <img
-              src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
-              alt="GitHub"
-              className="w-5 h-5 rounded-full"
-              onError={(e) => {
-                e.target.style.display = "none";
-              }}
-            />
-            <span className="font-medium text-sm">Star on GitHub</span>
-            <img
-              src="https://img.shields.io/github/stars/alpha-og/autograph?style=social"
-              alt="GitHub Repo stars"
-              className="h-5"
-              onError={(e) => {
-                e.target.style.display = "none";
-              }}
-            />
-          </div>
-        </a>
+      <div className="absolute top-0 w-screen px-4 flex items-center justify-center md:justify-between gap-3 z-20 flex-wrap bg-base-100 md:bg-transparent">
+        <img
+          src="/sprite.png"
+          className="w-16 h-16 p-2 rounded-full bg-base-100/80 border border-base-300 shadow-md hover:shadow-lg hover:scale-105 transition-all duration-300"
+        />
+        {/* Header Bar */}
+        <div className="border px-6 py-3 bg-base-100/80 backdrop-blur-md border-b border-base-300 rounded-b-2xl shadow-md text-center md:translate-x-27">
+          <h1 className="text-3xl font-bold text-base-content">
+            Code a Pookalam
+          </h1>
+          <p className="text-sm text-base-content/70">
+            Happy Onam! Here's my AutoGraph.
+          </p>
+        </div>
+        {/* Top Controls (GitHub + Settings) */}
+        <div className="flex items-center gap-3">
+          <a
+            href="https://github.com/alpha-og/autograph"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-base-100/80 border border-base-300 shadow-md hover:shadow-lg hover:scale-105 transition-all duration-300">
+              <img
+                src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
+                alt="GitHub"
+                className="w-5 h-5 rounded-full"
+                onError={(e) => {
+                  e.target.style.display = "none";
+                }}
+              />
+              <span className="font-medium text-sm">Star on GitHub</span>
+              <img
+                src="https://img.shields.io/github/stars/alpha-og/autograph?style=social"
+                alt="GitHub Repo stars"
+                className="h-5"
+                onError={(e) => {
+                  e.target.style.display = "none";
+                }}
+              />
+            </div>
+          </a>
 
-        <button
-          onClick={() => setShowControls((prev) => !prev)}
-          className="btn btn-secondary btn-circle shadow-md hover:shadow-lg transition-all duration-300"
-          aria-label="Toggle Settings"
-        >
-          <Settings size={18} />
-        </button>
-      </div>
-
-      {/* Header Bar */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 z-10 w-max px-6 py-3 bg-base-100/80 backdrop-blur-md border-b border-base-300 rounded-b-2xl shadow-md text-center">
-        <h1 className="text-3xl font-bold text-base-content">
-          Code a Pookalam
-        </h1>
-        <p className="text-sm text-base-content/70">
-          Happy Onam! Here's my AutoGraph.
-        </p>
+          <button
+            onClick={() => setShowControls((prev) => !prev)}
+            className="btn btn-secondary btn-circle shadow-md hover:shadow-lg transition-all duration-300"
+            aria-label="Toggle Settings"
+          >
+            <Settings size={18} />
+          </button>
+        </div>
       </div>
       <div className="w-full h-full flex flex-row bg-base-100 shadow-xl overflow-hidden relative">
         <DrawingCanvas
