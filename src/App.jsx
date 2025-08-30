@@ -189,7 +189,7 @@ export default function App() {
           Code a Pookalam
         </h1>
         <p className="text-sm text-base-content/70">
-          Happy Onam! Here's my Autograph.
+          Happy Onam! Here's my AutoGraph.
         </p>
       </div>
       <div className="w-full h-full flex flex-row bg-base-100 shadow-xl overflow-hidden relative">
