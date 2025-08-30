@@ -1,7 +1,15 @@
 import React, { useState, useRef, useMemo } from "react";
 import { DrawingCanvas } from "./components/DrawingCanvas";
-import { Play, Pause, RefreshCw, Minimize, Settings } from "lucide-react";
-import { X } from "lucide-react";
+import {
+  Play,
+  Pause,
+  RefreshCw,
+  Minimize,
+  Settings,
+  X,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
 import { finalPookalam, pookalamPresets } from "./utils/pookalam";
 
 /**
@@ -113,6 +121,35 @@ function PookalamControls({
     </div>
   );
 }
+
+function ZoomControls({ onZoomIn, onZoomOut, onResetView }) {
+  return (
+    <div className="fixed bottom-24 right-6 z-30 flex flex-col gap-2">
+      <button
+        onClick={onZoomIn}
+        className="btn btn-secondary btn-circle shadow-md hover:shadow-lg transition-all duration-300"
+        aria-label="Zoom In"
+      >
+        <ZoomIn size={18} />
+      </button>
+      <button
+        onClick={onZoomOut}
+        className="btn btn-secondary btn-circle shadow-md hover:shadow-lg transition-all duration-300"
+        aria-label="Zoom Out"
+      >
+        <ZoomOut size={18} />
+      </button>
+      <button
+        onClick={onResetView}
+        className="btn btn-secondary btn-circle shadow-md hover:shadow-lg transition-all duration-300"
+        aria-label="Reset View"
+      >
+        <Minimize size={18} />
+      </button>
+    </div>
+  );
+}
+
 export default function App() {
   const [params, setParams] = useState({
     speed: 2,
@@ -143,6 +180,9 @@ export default function App() {
     setZoom(1);
     canvasRef.current?.resetView();
   };
+
+  const handleZoomIn = () => setZoom((prev) => Math.min(prev * 1.3, 100));
+  const handleZoomOut = () => setZoom((prev) => Math.max(prev / 1.3, 0.01));
 
   return (
     <div className="w-screen h-screen bg-base-200 flex flex-col items-center justify-center relative font-sans overflow-hidden">
@@ -239,6 +279,11 @@ export default function App() {
           />
         </div>
       </div>
+      <ZoomControls
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+        onResetView={handleResetView}
+      />
     </div>
   );
 }

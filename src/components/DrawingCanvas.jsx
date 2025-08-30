@@ -171,6 +171,7 @@ export const DrawingCanvas = forwardRef(
     const [offset, setOffset] = useState({ x: 0, y: 0 });
     const isDragging = useRef(false);
     const lastMousePos = useRef({ x: 0, y: 0 });
+    const lastTouchDistance = useRef(null);
 
     useEffect(() => {
       const img = new Image();
@@ -464,9 +465,6 @@ export const DrawingCanvas = forwardRef(
       isDragging.current = false;
     }, []);
 
-    // ✅ FIX: The logic here is now correct. It calculates the delta in CSS pixels
-    // and converts it to a world-space delta, which works correctly with the
-    // simplified `toWorldCoords` function and the DPR scaling in `drawScene`.
     const handleMouseMove = useCallback(
       (e) => {
         if (!isDragging.current) return;
@@ -515,6 +513,78 @@ export const DrawingCanvas = forwardRef(
       [zoom, setZoom, scale, toWorldCoords],
     );
 
+    // --- TOUCH EVENT HANDLERS ---
+    const handleTouchStart = useCallback((e) => {
+      if (e.touches.length === 1) {
+        isDragging.current = true;
+        const rect = canvasRef.current.getBoundingClientRect();
+        lastMousePos.current = {
+          x: e.touches[0].clientX - rect.left,
+          y: e.touches[0].clientY - rect.top,
+        };
+      } else if (e.touches.length === 2) {
+        isDragging.current = false; // Stop panning when zooming
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        lastTouchDistance.current = Math.sqrt(dx * dx + dy * dy);
+      }
+    }, []);
+
+    const handleTouchEnd = useCallback(() => {
+      isDragging.current = false;
+      lastTouchDistance.current = null;
+    }, []);
+
+    const handleTouchMove = useCallback(
+      (e) => {
+        e.preventDefault(); // Prevent page scrolling
+        const rect = canvasRef.current.getBoundingClientRect();
+
+        // Handle single-touch pan
+        if (e.touches.length === 1 && isDragging.current) {
+          const currentTouchX = e.touches[0].clientX - rect.left;
+          const currentTouchY = e.touches[0].clientY - rect.top;
+
+          const dx_canvas = currentTouchX - lastMousePos.current.x;
+          const dy_canvas = currentTouchY - lastMousePos.current.y;
+
+          const dx_world = dx_canvas / (scale * zoom);
+          const dy_world = dy_canvas / (scale * zoom);
+
+          setOffset((prev) => ({ x: prev.x + dx_world, y: prev.y - dy_world }));
+
+          lastMousePos.current = { x: currentTouchX, y: currentTouchY };
+        }
+        // Handle two-finger pinch-to-zoom
+        else if (e.touches.length === 2) {
+          const t0 = e.touches[0];
+          const t1 = e.touches[1];
+
+          const dx = t0.clientX - t1.clientX;
+          const dy = t0.clientY - t1.clientY;
+          const newTouchDistance = Math.sqrt(dx * dx + dy * dy);
+
+          if (lastTouchDistance.current !== null) {
+            const zoomFactor = newTouchDistance / lastTouchDistance.current;
+            const newZoom = Math.min(Math.max(0.01, zoom * zoomFactor), 100);
+            if (newZoom === zoom) return;
+
+            const midX = (t0.clientX + t1.clientX) / 2 - rect.left;
+            const midY = (t0.clientY + t1.clientY) / 2 - rect.top;
+            const worldX = (midX - width / 2) / (scale * zoom) - offset.x;
+            const worldY = (height / 2 - midY) / (scale * zoom) - offset.y;
+
+            const newOffsetX = (midX - width / 2) / (scale * newZoom) - worldX;
+            const newOffsetY = (height / 2 - midY) / (scale * newZoom) - worldY;
+            setZoom(newZoom);
+            setOffset({ x: newOffsetX, y: newOffsetY });
+          }
+          lastTouchDistance.current = newTouchDistance;
+        }
+      },
+      [zoom, scale, setZoom, toWorldCoords],
+    );
+
     useImperativeHandle(ref, () => ({
       play: () => {
         runningRef.current = true;
@@ -537,6 +607,9 @@ export const DrawingCanvas = forwardRef(
         onMouseLeave={handleMouseUp}
         onMouseMove={handleMouseMove}
         onWheel={handleWheel}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchMove={handleTouchMove}
         {...props}
       >
         <canvas
