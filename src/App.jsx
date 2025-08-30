@@ -15,6 +15,8 @@ function PookalamControls({
   onReset,
   onResetView,
 }) {
+  const [selectedPreset, setSelectedPreset] = useState("traditional");
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setParams((prev) => ({
@@ -22,6 +24,13 @@ function PookalamControls({
       [name]: Number(value),
     }));
   };
+
+  const presets = [
+    { key: "traditional", label: "Traditional" },
+    { key: "ornate", label: "Ornate" },
+    { key: "minimalist", label: "Minimalist" },
+    { key: "organic", label: "Organic" },
+  ];
 
   const controlData = [
     { name: "style", min: 1, max: 100, step: 1, label: "Style (Seed)" },
@@ -36,56 +45,29 @@ function PookalamControls({
 
   return (
     <div className="p-4 space-y-6 overflow-y-auto h-full">
+      {/* Preset Buttons */}
       <div className="grid grid-cols-2 gap-2">
-        <button
-          onClick={() =>
-            setParams((prev) => ({
-              ...prev,
-              ...pookalamPresets.traditional,
-              style: Math.floor(Math.random() * 100),
-            }))
-          }
-          className="btn btn-primary btn-sm"
-        >
-          Traditional
-        </button>
-        <button
-          onClick={() =>
-            setParams((prev) => ({
-              ...prev,
-              ...pookalamPresets.ornate,
-              style: Math.floor(Math.random() * 100),
-            }))
-          }
-          className="btn btn-primary btn-sm"
-        >
-          Ornate
-        </button>
-        <button
-          onClick={() =>
-            setParams((prev) => ({
-              ...prev,
-              ...pookalamPresets.minimalist,
-              style: Math.floor(Math.random() * 100),
-            }))
-          }
-          className="btn btn-primary btn-sm"
-        >
-          Minimalist
-        </button>
-        <button
-          onClick={() =>
-            setParams((prev) => ({
-              ...prev,
-              ...pookalamPresets.organic,
-              style: Math.floor(Math.random() * 100),
-            }))
-          }
-          className="btn btn-primary btn-sm"
-        >
-          Organic
-        </button>
+        {presets.map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => {
+              setParams((prev) => ({
+                ...prev,
+                ...pookalamPresets[key],
+                style: Math.floor(Math.random() * 100),
+              }));
+              setSelectedPreset(key);
+            }}
+            className={`btn btn-sm ${
+              selectedPreset === key ? "btn-primary" : "btn-outline btn-primary"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
+
+      {/* Play / Pause / Reset Controls */}
       <div className="grid grid-cols-4 gap-2">
         <button onClick={onPlay} className="btn btn-success btn-sm">
           <Play size={16} className="shrink-0" /> Play
@@ -100,7 +82,10 @@ function PookalamControls({
           <Minimize size={16} className="shrink-0" /> View
         </button>
       </div>
+
       <div className="divider"></div>
+
+      {/* Sliders */}
       <div className="overflow-y-scroll">
         {controlData.map(({ name, min, max, step, label }) => (
           <div className="form-control" key={name}>
@@ -128,7 +113,6 @@ function PookalamControls({
     </div>
   );
 }
-
 export default function App() {
   const [params, setParams] = useState({
     speed: 2,
@@ -162,45 +146,51 @@ export default function App() {
 
   return (
     <div className="w-screen h-screen bg-base-200 flex flex-col items-center justify-center relative font-sans overflow-hidden">
-      <div className="absolute top-5 right-5 flex justify-center items-center gap-2 z-10 w-max text-center ">
+      {/* Top Controls (GitHub + Settings) */}
+      <div className="absolute top-5 right-5 flex items-center gap-3 z-20">
         <a
           href="https://github.com/alpha-og/autograph"
           target="_blank"
           rel="noreferrer"
         >
-          <div className="flex items-center gap-3 px-5 py-2.5 rounded-full bg-base-100 border-2 border-primary shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer">
+          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-base-100/80 border border-base-300 shadow-md hover:shadow-lg hover:scale-105 transition-all duration-300">
             <img
               src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
               alt="GitHub"
-              className="w-6 h-6 rounded-full"
+              className="w-5 h-5 rounded-full"
               onError={(e) => {
                 e.target.style.display = "none";
               }}
             />
-            <span className="font-semibold text-base text-primary">
-              Star on GitHub
-            </span>
+            <span className="font-medium text-sm">Star on GitHub</span>
             <img
               src="https://img.shields.io/github/stars/alpha-og/autograph?style=social"
               alt="GitHub Repo stars"
-              className="h-6"
+              className="h-5"
               onError={(e) => {
                 e.target.style.display = "none";
               }}
             />
           </div>
         </a>
+
         <button
           onClick={() => setShowControls((prev) => !prev)}
-          className="btn btn-secondary btn-circle shadow-lg "
+          className="btn btn-secondary btn-circle shadow-md hover:shadow-lg transition-all duration-300"
           aria-label="Toggle Settings"
         >
-          <Settings />
+          <Settings size={18} />
         </button>
       </div>
-      <div className="absolute top-0 z-10 w-max text-center bg-base-100/80 backdrop-blur-sm border-l border-base-300 p-4 rounded-br-2xl rounded-bl-2xl">
-        <h1 className="text-4xl font-bold">Code a Pookalam</h1>
-        <p className="text-base-content/70">Happy Onam! Here's my Autograph.</p>
+
+      {/* Header Bar */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 z-10 w-max px-6 py-3 bg-base-100/80 backdrop-blur-md border-b border-base-300 rounded-b-2xl shadow-md text-center">
+        <h1 className="text-3xl font-bold text-base-content">
+          Code a Pookalam
+        </h1>
+        <p className="text-sm text-base-content/70">
+          Happy Onam! Here's my Autograph.
+        </p>
       </div>
       <div className="w-full h-full flex flex-row bg-base-100 shadow-xl overflow-hidden relative">
         <DrawingCanvas
