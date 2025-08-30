@@ -131,8 +131,8 @@ function PookalamControls({
 
 export default function App() {
   const [params, setParams] = useState({
-    speed: 10,
-    resolution: 15,
+    speed: 2,
+    resolution: 10,
     ...pookalamPresets.traditional,
   });
 
@@ -199,10 +199,8 @@ export default function App() {
         </button>
       </div>
       <div className="absolute top-0 z-10 w-max text-center bg-base-100/80 backdrop-blur-sm border-l border-base-300 p-4 rounded-br-2xl rounded-bl-2xl">
-        <h1 className="text-4xl font-bold">Pookalam AutoGraph</h1>
-        <p className="text-base-content/70">
-          Happy Onam! Create a beautiful Pookalam with code.
-        </p>
+        <h1 className="text-4xl font-bold">Code a Pookalam</h1>
+        <p className="text-base-content/70">Happy Onam! Here's my Autograph.</p>
       </div>
       <div className="w-full h-full flex flex-row bg-base-100 shadow-xl overflow-hidden relative">
         <DrawingCanvas

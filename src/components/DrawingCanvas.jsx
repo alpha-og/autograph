@@ -7,7 +7,6 @@ import React, {
   forwardRef,
   useImperativeHandle,
 } from "react";
-import { Settings, Play, Pause, RefreshCw, Minimize } from "lucide-react";
 import { mulberry32 } from "../utils/rng";
 
 // --- HELPER COMPONENTS AND FUNCTIONS ---
@@ -182,6 +181,14 @@ export const DrawingCanvas = forwardRef(
       };
     }, [spriteUrl]);
 
+    useEffect(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+    }, [width, height]);
+
     const toCanvasCoords = useCallback(
       (x, y) => ({
         x: width / 2 + (x + offset.x) * scale * zoom,
@@ -190,6 +197,9 @@ export const DrawingCanvas = forwardRef(
       [width, height, scale, zoom, offset],
     );
 
+    // ✅ FIX: Reverted to the simple, correct version. This function works with
+    // the logical canvas dimensions (CSS pixels), and the DPR scaling is handled
+    // entirely within the `drawScene` function.
     const toWorldCoords = useCallback(
       (cx, cy) => ({
         x: (cx - width / 2) / (scale * zoom) - offset.x,
@@ -261,14 +271,18 @@ export const DrawingCanvas = forwardRef(
 
     const drawScene = useCallback(
       (ctx) => {
-        ctx.clearRect(0, 0, width, height);
+        const dpr = window.devicePixelRatio || 1;
+
         ctx.save();
+        ctx.scale(dpr, dpr);
+
+        ctx.clearRect(0, 0, width, height);
 
         const currentScale = scale * zoom;
         const gridStep = calculateAdaptiveGridStep(currentScale);
         if (showGrid) {
           ctx.strokeStyle = "rgba(0, 0, 0, 0.1)";
-          ctx.lineWidth = 1;
+          ctx.lineWidth = 1 / dpr;
           const xStep = gridStep;
           const startX = Math.floor(toWorldCoords(0, 0).x / xStep) * xStep;
           const endX = Math.ceil(toWorldCoords(width, 0).x / xStep) * xStep;
@@ -292,7 +306,7 @@ export const DrawingCanvas = forwardRef(
         }
 
         ctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 1.5 / dpr;
         const origin = toCanvasCoords(0, 0);
         ctx.beginPath();
         ctx.moveTo(0, origin.y);
@@ -303,7 +317,7 @@ export const DrawingCanvas = forwardRef(
 
         if (showLabels) {
           ctx.fillStyle = "#555";
-          ctx.font = "12px Arial";
+          ctx.font = `${12}px Arial`;
           ctx.textAlign = "center";
           ctx.textBaseline = "top";
           const labelStep = calculateAdaptiveGridStep(currentScale);
@@ -355,7 +369,7 @@ export const DrawingCanvas = forwardRef(
           }
           const pts = segmentPoints.map((p) => toCanvasCoords(p.x, p.y));
           ctx.strokeStyle = `rgba(${segment.color}, ${pathAlphaRef.current})`;
-          ctx.lineWidth = mode === "fractal" ? 2 : 3;
+          ctx.lineWidth = (mode === "fractal" ? 2 : 3) / dpr;
           ctx.lineCap = "round";
           ctx.lineJoin = "round";
           ctx.beginPath();
@@ -374,6 +388,7 @@ export const DrawingCanvas = forwardRef(
           alpha: spriteAlphaRef.current,
           sprite: spriteImgRef.current,
         });
+
         ctx.restore();
       },
       [
@@ -399,7 +414,7 @@ export const DrawingCanvas = forwardRef(
         const deltaTime = timestamp - lastTimeRef.current;
         lastTimeRef.current = timestamp;
         if (runningRef.current && points && points.length > 0) {
-          const progressSpeed = (speed * 50 * deltaTime) / 1000;
+          const progressSpeed = (speed * 10 * deltaTime) / 1000;
           if (statusRef.current === "drawing") {
             progressRef.current += progressSpeed;
             if (progressRef.current >= points.length - 1) {
@@ -436,26 +451,28 @@ export const DrawingCanvas = forwardRef(
       handleReset();
     }, [points, handleReset]);
 
-    const handleMouseDown = useCallback(
-      (e) => {
-        isDragging.current = true;
-        const rect = canvasRef.current.getBoundingClientRect();
-        lastMousePos.current = {
-          x: (e.clientX - rect.left) * (width / rect.width),
-          y: (e.clientY - rect.top) * (height / rect.height),
-        };
-      },
-      [width, height],
-    );
+    const handleMouseDown = useCallback((e) => {
+      isDragging.current = true;
+      const rect = canvasRef.current.getBoundingClientRect();
+      lastMousePos.current = {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      };
+    }, []);
+
     const handleMouseUp = useCallback(() => {
       isDragging.current = false;
     }, []);
+
+    // ✅ FIX: The logic here is now correct. It calculates the delta in CSS pixels
+    // and converts it to a world-space delta, which works correctly with the
+    // simplified `toWorldCoords` function and the DPR scaling in `drawScene`.
     const handleMouseMove = useCallback(
       (e) => {
         if (!isDragging.current) return;
         const rect = canvasRef.current.getBoundingClientRect();
-        const currentMouseX = (e.clientX - rect.left) * (width / rect.width);
-        const currentMouseY = (e.clientY - rect.top) * (height / rect.height);
+        const currentMouseX = e.clientX - rect.left;
+        const currentMouseY = e.clientY - rect.top;
 
         const dx_canvas = currentMouseX - lastMousePos.current.x;
         const dy_canvas = currentMouseY - lastMousePos.current.y;
@@ -467,33 +484,35 @@ export const DrawingCanvas = forwardRef(
 
         lastMousePos.current = { x: currentMouseX, y: currentMouseY };
       },
-      [zoom, scale, width, height],
+      [zoom, scale],
     );
+
     const handleWheel = useCallback(
       (e) => {
         e.preventDefault();
         if (typeof setZoom !== "function") return;
         const rect = canvasRef.current.getBoundingClientRect();
 
-        // ✅ FIX: Scale mouse coordinates to match canvas resolution for accurate pivot point.
-        const mouseX = (e.clientX - rect.left) * (width / rect.width);
-        const mouseY = (e.clientY - rect.top) * (height / rect.height);
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
 
         const zoomFactor = 0.1;
         const delta = e.deltaY > 0 ? -zoomFactor : zoomFactor;
         const newZoom = Math.min(Math.max(0.0001, zoom + delta * zoom), 100);
         if (newZoom === zoom) return;
 
-        const worldX = (mouseX - width / 2) / (scale * zoom) - offset.x;
-        const worldY = (height / 2 - mouseY) / (scale * zoom) - offset.y;
-
-        const newOffsetX = (mouseX - width / 2) / (scale * newZoom) - worldX;
-        const newOffsetY = (height / 2 - mouseY) / (scale * newZoom) - worldY;
+        const worldBeforeZoom = toWorldCoords(mouseX, mouseY);
 
         setZoom(newZoom);
-        setOffset({ x: newOffsetX, y: newOffsetY });
+
+        const worldAfterZoom = toWorldCoords(mouseX, mouseY);
+
+        setOffset((prev) => ({
+          x: prev.x + (worldBeforeZoom.x - worldAfterZoom.x),
+          y: prev.y + (worldBeforeZoom.y - worldAfterZoom.y),
+        }));
       },
-      [zoom, setZoom, offset, width, height, scale],
+      [zoom, setZoom, scale, toWorldCoords],
     );
 
     useImperativeHandle(ref, () => ({
@@ -522,9 +541,7 @@ export const DrawingCanvas = forwardRef(
       >
         <canvas
           ref={canvasRef}
-          width={width}
-          height={height}
-          className="w-full h-full bg-base-100"
+          className="w-full h-full bg-base-100 object-cover"
         />
       </div>
     );
