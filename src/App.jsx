@@ -158,7 +158,7 @@ export default function App() {
   });
 
   const [zoom, setZoom] = useState(1);
-  const [showControls, setShowControls] = useState(true);
+  const [showControls, setShowControls] = useState(false);
   const canvasRef = useRef(null);
 
   const equation = useMemo(
